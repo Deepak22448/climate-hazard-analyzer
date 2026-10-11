@@ -114,7 +114,10 @@ export function HeadlineChart({ analysis, selectedYear, onSelectYear }: Headline
       <CardHeader>
         <CardTitle>{metric.label} per year</CardTitle>
         <CardDescription>
-          {trendSummary(trend, metric.unit)}. Click a year to see its daily data below.
+          {trendSummary(trend, metric.unit)}
+          {trend &&
+            ` (linear regression: ${trend.ols_per_decade.toFixed(2)}, 95% CI ${trend.ols_ci95[0].toFixed(2)} to ${trend.ols_ci95[1].toFixed(2)})`}
+          . Click a year to see its daily data below.
         </CardDescription>
       </CardHeader>
       <CardContent className="h-80">
@@ -234,7 +237,9 @@ export function DailyChart({ analysis, pointIndex, year }: DailyProps) {
             maxRotation: 0,
             // Label only the first day of each month.
             callback: (_value, i) =>
-              dates[i].endsWith('-01') ? new Date(dates[i]).toLocaleString('en', { month: 'short' }) : '',
+              dates[i].endsWith('-01')
+                ? new Date(dates[i]).toLocaleString('en', { month: 'short', timeZone: 'UTC' })
+                : '',
           },
           grid: { display: false },
         },

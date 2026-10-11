@@ -51,8 +51,8 @@ export function Summary({ analysis, hazardLabel, regionName, query }: Props) {
           <Badge variant="outline">
             {analysis.region.points.length} grid cell{analysis.region.points.length > 1 && 's'}
           </Badge>
-          <Badge variant="outline">{qc.missing_days} missing days</Badge>
-          <Badge variant="outline">{qc.flagged_values} values removed by QC</Badge>
+          <Badge variant="outline">{qc.missing_days} missing days (whole record)</Badge>
+          <Badge variant="outline">{qc.flagged_values} values removed by QC (whole record)</Badge>
           <Badge variant={qc.incomplete_years.length ? 'destructive' : 'outline'}>
             {qc.incomplete_years.length
               ? `Years excluded: ${qc.incomplete_years.join(', ')}`

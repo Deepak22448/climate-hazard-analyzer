@@ -81,6 +81,8 @@ class AnalysisQuery(HazardQuery):
         fields = self.model_dump()
         if self.lat is not None:
             fields["lat"], fields["lon"] = analysis.snap(self.lat, self.lon)
+        if self.bbox is not None:
+            fields["bbox"] = ",".join(f"{value:.3f}" for value in self.box)
         fields["version"] = analysis.ALGO_VERSION
         return hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest()
 

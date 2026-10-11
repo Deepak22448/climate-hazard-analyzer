@@ -15,7 +15,8 @@ import {
 
 import type { Analysis, Bbox, Region } from '@/types'
 
-// NASA POWER (MERRA-2) grid spacing: every square drawn on the map is one data cell.
+// NASA POWER (MERRA-2) grid spacing, same as GRID_LAT/GRID_LON in backend/app/analysis.py.
+// Every square drawn on the map is one data cell.
 const CELL_LAT = 0.5
 const CELL_LON = 0.625
 

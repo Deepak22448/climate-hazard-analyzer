@@ -55,8 +55,12 @@ export function fromQueryString(search: string, defaults: { region: Region; sett
   if (params.has('lat') && params.has('lon')) {
     region = { kind: 'point', name, lat: number('lat', 0), lon: number('lon', 0) }
   } else if (params.has('bbox')) {
-    const [south, west, north, east] = params.get('bbox')!.split(',').map(Number)
-    region = { kind: 'box', bbox: [south, west, north, east] }
+    const corners = params.get('bbox')!.split(',').map(Number)
+    // A hand-edited link could carry a broken box; fall back to the default instead of crashing.
+    if (corners.length === 4 && corners.every(Number.isFinite)) {
+      const [south, west, north, east] = corners
+      region = { kind: 'box', bbox: [south, west, north, east] }
+    }
   } else if (params.has('state')) {
     region = { kind: 'state', name, id: params.get('state')! }
   }

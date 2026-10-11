@@ -145,7 +145,9 @@ export function Controls(props: Props) {
                     min={2}
                     max={10}
                     value={settings.minDays}
-                    onChange={(e) => update({ minDays: Number(e.target.value) })}
+                    onChange={(e) =>
+                      update({ minDays: Math.min(10, Math.max(2, Number(e.target.value) || 2)) })
+                    }
                   />
                 </div>
               )}

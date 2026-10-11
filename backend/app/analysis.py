@@ -60,9 +60,9 @@ def sample_points(bbox: list[float], outline=None) -> list[tuple[float, float]]:
         # Snapping can push a cell centre across a coastline into the sea. Prefer
         # cells still inside; a very thin state may have none, so keep the rest then.
         cells = [(lat, lon) for lat, lon in cells if outline.contains(Point(lon, lat))] or cells
-    if not cells:  # tiny or oddly shaped region
-        middle = outline.representative_point() if outline is not None else None
-        return [snap(middle.y, middle.x) if middle else snap((south + north) / 2, (west + east) / 2)]
+    if not cells:  # a state so thin that no lattice point lands inside it
+        middle = outline.representative_point()
+        return [snap(middle.y, middle.x)]
     keep = np.linspace(0, len(cells) - 1, min(MAX_POINTS, len(cells))).round().astype(int)
     return [cells[i] for i in keep]
 
@@ -124,11 +124,13 @@ async def run_analysis(hazard_name: str, params: HazardParams, first: int, last:
         annual = found.annual.loc[first:last].copy()
         # A year with many gaps undercounts events and would fake a dip in the
         # trend, so it is left out rather than shown as zero.
-        annual.loc[annual.index.isin(point_qc["incomplete_years"])] = np.nan
+        excluded = point_qc["incomplete_years"]
+        annual.loc[annual.index.isin(excluded)] = np.nan
         per_point.append(annual)
 
-        in_range = found.events[pd.DatetimeIndex(found.events["start"]).year.isin(range(first, last + 1))]
-        events.append(in_range.assign(point=index))
+        start_years = pd.DatetimeIndex(found.events["start"]).year
+        kept = start_years.isin(range(first, last + 1)) & ~start_years.isin(excluded)
+        events.append(found.events[kept].assign(point=index))
         threshold = found.threshold.loc[str(BASELINE[0]) : str(BASELINE[1])]
         points.append(
             {
@@ -143,10 +145,12 @@ async def run_analysis(hazard_name: str, params: HazardParams, first: int, last:
         qc["incomplete_years"].update(y for y in point_qc["incomplete_years"] if first <= y <= last)
 
     regional = pd.concat(per_point).groupby(level=0).mean()
+    # A year incomplete at any cell is left out for the whole region, so the
+    # average is never quietly taken over fewer cells.
+    regional.loc[regional.index.isin(qc["incomplete_years"])] = np.nan
     regional["rolling"] = rolling_mean(regional[headline])
-    regional["points_affected_pct"] = 100 * pd.concat([a["events"] > 0 for a in per_point], axis=1).mean(
-        axis=1
-    )
+    affected = pd.concat([(a["events"] > 0).where(a["events"].notna()) for a in per_point], axis=1)
+    regional["points_affected_pct"] = 100 * affected.astype(float).mean(axis=1)
     trends = {metric: fit_trend(regional[metric]) for metric in metrics}
 
     all_events = pd.concat(events)
@@ -216,7 +220,9 @@ def write_caveats(first: int, last: int, point_count: int, incomplete_years: lis
             "mimic a trend."
         )
     if incomplete_years:
-        caveats.append(f"Left out years with over 5% missing data: {', '.join(map(str, incomplete_years))}.")
+        caveats.append(
+            f"Left out years with over 5% missing or QC-rejected data: {', '.join(map(str, incomplete_years))}."
+        )
     if point_count > 1:
         caveats.append(
             f"Regional values average {point_count} grid points, each analysed on its own, so local "

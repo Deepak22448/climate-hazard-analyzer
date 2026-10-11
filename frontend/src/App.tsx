@@ -38,19 +38,18 @@ export default function App() {
 }
 
 function Dashboard({ meta }: { meta: Meta }) {
-  const [initial] = useState(() =>
-    fromQueryString(window.location.search, {
-      region: DEFAULT_REGION,
-      settings: {
-        hazard: 'heatwave',
-        start: meta.first_year,
-        end: meta.last_year,
-        percentile: 95,
-        minDays: 3,
-        method: 'annual',
-      },
-    }),
-  )
+  const defaults = {
+    region: DEFAULT_REGION,
+    settings: {
+      hazard: 'heatwave',
+      start: meta.first_year,
+      end: meta.last_year,
+      percentile: 95,
+      minDays: 3,
+      method: 'annual',
+    } satisfies Settings,
+  }
+  const [initial] = useState(() => fromQueryString(window.location.search, defaults))
   const [mode, setMode] = useState<Region['kind']>(initial.region.kind)
   const [region, setRegion] = useState<Region>(initial.region)
   const [settings, setSettings] = useState<Settings>(initial.settings)
@@ -61,7 +60,7 @@ function Dashboard({ meta }: { meta: Meta }) {
 
   const analysis = useAnalysis(query)
   const result = analysis.data
-  const submitted = fromQueryString(query, initial)
+  const submitted = fromQueryString(query, defaults)
   const hazardLabel = meta.hazards.find((h) => h.id === submitted.settings.hazard)?.label ?? ''
 
   // A state opened from a shared link has no outline until the analysis returns one.
