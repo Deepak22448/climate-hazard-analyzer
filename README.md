@@ -1,4 +1,4 @@
-# Climate Hazard Trend Analyzer
+# ClimaTrend: Climate Hazard Trend Analyzer
 
 Pick a city, a state or a box on the map, and see how heatwaves (or heavy rain, or dry spells) have changed there since 1981, with an honest test of whether the change is real.
 

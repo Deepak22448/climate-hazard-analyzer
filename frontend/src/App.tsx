@@ -57,9 +57,7 @@ function Header({ meta, dark, onToggleTheme }: HeaderProps) {
           <ThermometerSun className="size-5" />
         </div>
         <div className="min-w-0">
-          <h1 className="truncate text-base leading-tight font-semibold tracking-tight">
-            Climate Hazard Trend Analyzer
-          </h1>
+          <h1 className="truncate text-base leading-tight font-semibold tracking-tight">ClimaTrend</h1>
           <p className="hidden truncate text-xs text-muted-foreground sm:block">
             Heatwaves, heavy rain and dry spells since 1981, tested for real trends
           </p>
