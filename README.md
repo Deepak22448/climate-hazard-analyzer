@@ -169,7 +169,7 @@ File-by-file guides: [backend/README.md](backend/README.md) (modules, MongoDB co
 
 ## Data handling
 
-Quality control lives in `hazards.clean` and runs on every read. Its counts go back with every analysis and appear as badges in the UI. The badges cover the cell's whole 1981–present record.
+Quality control is the `clean()` function in [`backend/app/hazards.py`](backend/app/hazards.py) and runs on every read. Its counts go back with every analysis and appear as badges in the UI. The badges cover the cell's whole 1981–present record.
 
 - **Fill values:** NASA's `-999` becomes "missing".
 - **Units:** asserted on every download (°C and mm/day). If NASA ever changed units, the app fails loudly instead of quietly treating Kelvin as °C.
