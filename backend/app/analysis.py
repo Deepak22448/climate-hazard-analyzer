@@ -29,7 +29,7 @@ GRID_LAT, GRID_LON = 0.5, 0.625  # MERRA-2 grid spacing in degrees
 MAX_POINTS = 9
 LATTICE_SIZE = 6
 SHORT_RANGE_YEARS = 20
-ALGO_VERSION = 3  # bump when hazard logic changes so cached analyses are recomputed
+ALGO_VERSION = 4  # bump when hazard logic changes so cached analyses are recomputed
 
 
 def last_complete_year(today: date | None = None) -> int:
@@ -210,10 +210,7 @@ def write_insights(metrics: dict, regional: pd.DataFrame, trends: dict) -> list[
 
 
 def write_caveats(first: int, last: int, point_count: int, incomplete_years: list[int]) -> list[str]:
-    caveats = [
-        "Data: NASA POWER daily (MERRA-2 reanalysis, ~50 km grid). Reanalysis smooths local extremes, so "
-        "absolute counts run lower than at a weather station. The trend is the more reliable signal."
-    ]
+    caveats = []
     if last - first + 1 < SHORT_RANGE_YEARS:
         caveats.append(
             f"Only {last - first + 1} years selected. Over short periods natural variability can hide or "

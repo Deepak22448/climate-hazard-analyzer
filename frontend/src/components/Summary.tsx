@@ -60,14 +60,16 @@ export function Summary({ analysis, hazardLabel, regionName, query }: Props) {
           </Badge>
         </div>
 
-        <ul className="space-y-1 text-xs text-muted-foreground">
-          {analysis.caveats.map((line) => (
-            <li key={line} className="flex gap-2">
-              <TriangleAlert className="mt-0.5 size-3 shrink-0" />
-              {line}
-            </li>
-          ))}
-        </ul>
+        {analysis.caveats.length > 0 && (
+          <ul className="space-y-1 text-xs text-muted-foreground">
+            {analysis.caveats.map((line) => (
+              <li key={line} className="flex gap-2">
+                <TriangleAlert className="mt-0.5 size-3 shrink-0" />
+                {line}
+              </li>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   )

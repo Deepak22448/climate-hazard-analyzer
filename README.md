@@ -133,7 +133,7 @@ The frontend has no hazard-specific code. `/api/meta` lists the hazards and the 
   - They compare the **first-decade average with the last-decade average**, never two single years.
   - Percent change is shown only for counts, and only when the starting value is at least 1 a year. "+300%" from 0.5 to 2 days misleads.
   - Every trend sentence states whether it is statistically significant. If it isn't, it says so.
-  - A caveat appears when fewer than 20 years are selected, when years were excluded, and always about reanalysis smoothing.
+  - A caveat appears when fewer than 20 years are selected, and when years were excluded.
 - **Example of why this matters:** Paris shows a significant +3.4 heatwave days per decade for 1981–2025 (p = 0.002), but **no trend for 1991–2020** (12.0 → 13.5 days a year, p = 0.83). The long-run signal comes from the cool 1980s and recent hot summers such as 2022 (41 days) and 2023. The tool reports both readings rather than picking one.
 
 ## Data handling
