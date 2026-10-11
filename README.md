@@ -165,7 +165,7 @@ Quality control in `hazards.clean`. The results go back with every analysis and 
   - If the provider stays down, the API returns 502 with a friendly message and no stack trace.
 - **Caching:**
   - Raw data in Mongo (permanent), finished analyses (7 days), state outlines (30 days).
-  - `Cache-Control` headers, so browsers and CDNs can cache too.
+  - Place searches carry `Cache-Control` for a day. Analyses deliberately don't: a browser-cached copy would outlive an `ALGO_VERSION` bump after a deploy.
   - In-browser caching via TanStack Query.
   - Responses are gzip-compressed.
 - **CORS** allows only the frontend's origin and GET requests. Secrets live only in environment variables.

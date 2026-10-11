@@ -124,8 +124,7 @@ async def health() -> dict:
 
 
 @app.get("/api/meta")
-async def meta(response: Response) -> dict:
-    response.headers["Cache-Control"] = "public, max-age=3600"
+async def meta() -> dict:
     return {
         "first_year": analysis.FIRST_YEAR,
         "last_year": analysis.last_complete_year(),
@@ -171,10 +170,9 @@ async def cached_analysis(query: AnalysisQuery) -> dict:
 
 @app.get("/api/analysis")
 @limiter.limit("20/minute")
-async def get_analysis(
-    request: Request, response: Response, query: Annotated[AnalysisQuery, Query()]
-) -> dict:
-    response.headers["Cache-Control"] = "public, max-age=3600"
+async def get_analysis(request: Request, query: Annotated[AnalysisQuery, Query()]) -> dict:
+    # No browser Cache-Control here on purpose: results are cached in Mongo and
+    # reset by ALGO_VERSION, but a browser-cached copy would stay stale after a deploy.
     return await cached_analysis(query)
 
 
@@ -195,8 +193,7 @@ async def get_analysis_csv(request: Request, query: Annotated[AnalysisQuery, Que
 
 @app.get("/api/daily")
 @limiter.limit("60/minute")
-async def get_daily(request: Request, response: Response, query: Annotated[DailyQuery, Query()]) -> dict:
+async def get_daily(request: Request, query: Annotated[DailyQuery, Query()]) -> dict:
     if query.year > analysis.last_complete_year():
         raise HTTPException(422, "year is past the last complete year of data")
-    response.headers["Cache-Control"] = "public, max-age=3600"
     return await analysis.daily_detail(query.hazard, query.params(), query.lat, query.lon, query.year)
