@@ -60,14 +60,38 @@ Environment variables (all optional locally):
 
 ## Architecture
 
-```
-React + Vite (Vercel) ──GET──> FastAPI (Render, Docker) ──> MongoDB Atlas
-  Chart.js, Leaflet,             validation, rate limits      weather_daily  (raw data, permanent)
-  TanStack Query                 │                            analyses       (results, 7-day TTL)
-                                 │                            places         (state outlines, 30-day TTL)
-                                 ├─> NASA POWER daily API   (weather)
-                                 ├─> Open-Meteo geocoding   (city search)
-                                 └─> Nominatim / OSM        (state search + outline)
+```mermaid
+flowchart LR
+    user(["Browser"])
+
+    subgraph frontend["Frontend · Vercel"]
+        ui["React + Vite<br/>Chart.js · Leaflet · TanStack Query"]
+    end
+
+    subgraph backend["Backend · Render (Docker)"]
+        api["FastAPI<br/>validation · rate limits · CSV<br/>analysis → hazards → trends"]
+    end
+
+    subgraph mongo["MongoDB Atlas"]
+        weather[("weather_daily<br/>raw daily data · permanent")]
+        analyses[("analyses<br/>finished results · 7-day TTL")]
+        places[("places<br/>state outlines · 30-day TTL")]
+    end
+
+    subgraph external["External APIs"]
+        nasa["NASA POWER<br/>daily weather"]
+        openmeteo["Open-Meteo<br/>city search"]
+        nominatim["Nominatim / OSM<br/>state search + outline"]
+    end
+
+    user --> ui
+    ui -- "GET /api/*" --> api
+    api <--> analyses
+    api <--> weather
+    api <--> places
+    api -- "only for missing years" --> nasa
+    api --> openmeteo
+    api -- "max 1 req/s" --> nominatim
 ```
 
 What happens on `GET /api/analysis`:
