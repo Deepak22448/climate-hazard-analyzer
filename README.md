@@ -16,7 +16,7 @@ Pick a city, a state or a box on the map, and see how heatwaves (or heavy rain, 
   - **Headline chart:** bars per year, a 5-year average, and a Sen's-slope trend line. The linear-regression slope and its 95% confidence interval are shown alongside.
   - **One small chart per secondary metric,** each with a badge saying whether its trend is significant.
   - **Map** of the analysed grid cells, red if the headline metric is rising and blue if falling. Click a cell to use it for the daily view.
-  - **Daily view.** Click a year to see its daily values against the threshold, with each event shaded.
+  - **Daily view.** Click a year to see its daily values against the threshold, with each event shaded. Switch between the whole year and a single month; the month list shows how many events touch each month.
   - **Data-quality line** at the bottom of the results card: number of grid cells, and "complete record" when nothing was wrong. Missing days, QC removals or excluded years show up there as badges (red for excluded years, since they change the trend).
 - **Export:** CSV of the yearly table, and PDF through the browser's print dialog (with a print stylesheet).
 - **Shareable links:** the page URL holds the full query.

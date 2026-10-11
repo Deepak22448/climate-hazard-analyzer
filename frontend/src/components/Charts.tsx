@@ -13,11 +13,13 @@ import {
   Tooltip,
 } from 'chart.js'
 import annotationPlugin from 'chartjs-plugin-annotation'
+import { useState } from 'react'
 import { Chart } from 'react-chartjs-2'
 
 import { useDaily } from '@/api'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Analysis, Trend } from '@/types'
 
@@ -196,11 +198,31 @@ export function MetricChart({ analysis, metricKey }: { analysis: Analysis; metri
 
 type DailyProps = { analysis: Analysis; pointIndex: number; year: number | null }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const WHOLE_YEAR = 'all'
+
+// ISO date strings compare correctly as text, and no month has a day after "31".
+function touchesMonth(event: { start: string; end: string }, year: number, month: string) {
+  return event.start <= `${year}-${month}-31` && event.end >= `${year}-${month}-01`
+}
+
 export function DailyChart({ analysis, pointIndex, year }: DailyProps) {
   const daily = useDaily(analysis, pointIndex, year)
+  // 'all' or "01"–"12". Kept when the year changes, so the same month can be compared across years.
+  const [month, setMonth] = useState(WHOLE_YEAR)
   const point = analysis.region.points[pointIndex]
   const color = hazardColor(analysis.hazard)
   const theme = themeColors()
+
+  const yearEvents = daily.data?.events ?? []
+  const monthOptions = [
+    { value: WHOLE_YEAR, label: 'Whole year' },
+    ...MONTHS.map((name, i) => {
+      const value = String(i + 1).padStart(2, '0')
+      const count = year ? yearEvents.filter((event) => touchesMonth(event, year, value)).length : 0
+      return { value, label: count ? `${name} · ${count} event${count > 1 ? 's' : ''}` : name }
+    }),
+  ]
 
   let body
   if (!year) {
@@ -215,23 +237,29 @@ export function DailyChart({ analysis, pointIndex, year }: DailyProps) {
     body = <p className="text-sm text-destructive">{daily.error.message}</p>
   } else {
     const { dates, values, threshold, events, variable } = daily.data
+    // The days on screen are one contiguous slice [from, to] of the year.
+    const shown = dates.flatMap((date, i) => (month === WHOLE_YEAR || date.slice(5, 7) === month ? [i] : []))
+    const from = shown[0]
+    const to = shown[shown.length - 1]
+    const labels = dates.slice(from, to + 1)
     const index = (date: string, fallback: number) => (dates.includes(date) ? dates.indexOf(date) : fallback)
+
     const data: ChartData<'line' | 'bar', Values, string> = {
-      labels: dates,
+      labels,
       datasets: [
         {
           type: variable === 'precip' ? 'bar' : 'line',
           label: variable === 'precip' ? 'Daily rainfall' : 'Daily max temperature',
-          data: values,
+          data: values.slice(from, to + 1),
           borderColor: color,
           backgroundColor: color,
-          pointRadius: 0,
+          pointRadius: month === WHOLE_YEAR ? 0 : 2.5,
           borderWidth: 1.5,
         },
         {
           type: 'line',
           label: 'Threshold',
-          data: threshold,
+          data: threshold.slice(from, to + 1),
           borderColor: theme.ink,
           borderDash: [5, 4],
           pointRadius: 0,
@@ -248,11 +276,11 @@ export function DailyChart({ analysis, pointIndex, year }: DailyProps) {
           ticks: {
             autoSkip: false,
             maxRotation: 0,
-            // Label only the first day of each month.
-            callback: (_value, i) =>
-              dates[i].endsWith('-01')
-                ? new Date(dates[i]).toLocaleString('en', { month: 'short', timeZone: 'UTC' })
-                : '',
+            // Whole year: label the first day of each month. One month: label every day.
+            callback: (_value, i) => {
+              if (month !== WHOLE_YEAR) return Number(labels[i].slice(8))
+              return labels[i].endsWith('-01') ? MONTHS[Number(labels[i].slice(5, 7)) - 1] : ''
+            },
           },
           grid: { display: false },
         },
@@ -261,13 +289,21 @@ export function DailyChart({ analysis, pointIndex, year }: DailyProps) {
       plugins: {
         legend: { position: 'bottom' },
         annotation: {
-          annotations: events.map((event) => ({
-            type: 'box' as const,
-            xMin: index(event.start, 0),
-            xMax: index(event.end, dates.length - 1),
-            backgroundColor: `${color}26`,
-            borderWidth: 0,
-          })),
+          // Clip each event to the days on screen; ±0.5 makes a one-day event a full-width band.
+          annotations: events.flatMap((event) => {
+            const start = Math.max(index(event.start, 0), from)
+            const end = Math.min(index(event.end, dates.length - 1), to)
+            if (start > end) return []
+            return [
+              {
+                type: 'box' as const,
+                xMin: start - from - 0.5,
+                xMax: end - from + 0.5,
+                backgroundColor: `${color}26`,
+                borderWidth: 0,
+              },
+            ]
+          }),
         },
       },
     }
@@ -287,6 +323,22 @@ export function DailyChart({ analysis, pointIndex, year }: DailyProps) {
           {analysis.region.points.length > 1 && ' (click another square on the map to switch)'}. Shaded spans
           are detected events.
         </CardDescription>
+        {year && (
+          <CardAction>
+            <Select value={month} onValueChange={(value) => value && setMonth(value)} items={monthOptions}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent>{body}</CardContent>
     </Card>
