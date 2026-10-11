@@ -14,7 +14,7 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponen
 POWER_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
 CITY_SEARCH_URL = "https://geocoding-api.open-meteo.com/v1/search"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org"
-USER_AGENT = "climate-hazard-analyzer/1.0 (github.com/deepaksharma/climate-hazard-analyzer)"
+USER_AGENT = "climate-hazard-analyzer/1.0 (case-study app; python-httpx)"
 
 POWER_PARAMETERS = {"T2M_MAX": "tmax", "T2M_MIN": "tmin", "PRECTOTCORR": "precip"}
 POWER_UNITS = {"T2M_MAX": "C", "T2M_MIN": "C", "PRECTOTCORR": "mm/day"}
