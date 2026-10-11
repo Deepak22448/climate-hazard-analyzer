@@ -5,7 +5,9 @@ import type { Analysis, DailyDetail, Meta, Method, Place, Region, Settings } fro
 export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, { signal })
+  // 'no-cache' makes the browser check with the server every time. Caching lives in
+  // Mongo and TanStack Query, which reset properly; a stale browser copy would not.
+  const response = await fetch(`${API_URL}${path}`, { signal, cache: 'no-cache' })
   const body = await response.json().catch(() => null)
   if (!response.ok) throw new Error(errorMessage(body, response.status))
   return body as T
