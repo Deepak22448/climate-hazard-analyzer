@@ -121,6 +121,19 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/meta")
+async def meta(response: Response) -> dict:
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return {
+        "first_year": analysis.FIRST_YEAR,
+        "last_year": analysis.last_complete_year(),
+        "hazards": [
+            {"id": key, "label": hazard.label, "params": list(hazard.params)}
+            for key, hazard in HAZARDS.items()
+        ],
+    }
+
+
 @app.get("/api/places")
 @limiter.limit("30/minute")
 async def places(

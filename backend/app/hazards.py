@@ -211,16 +211,20 @@ def drought(daily: pd.DataFrame, params: HazardParams) -> Detection:
 
 
 class Hazard(NamedTuple):
+    label: str
     detect: Callable[[pd.DataFrame, HazardParams], Detection]
     variable: str  # daily column the threshold applies to
+    params: tuple[str, ...]  # HazardParams fields this hazard actually uses
     metrics: dict[str, tuple[str, str]]  # column -> (label, unit). The first one is the headline.
 
 
 HAZARDS = {
     "heatwave": Hazard(
-        heatwaves,
-        "tmax",
-        {
+        label="Heatwave",
+        detect=heatwaves,
+        variable="tmax",
+        params=("percentile", "min_days", "method"),
+        metrics={
             "days": ("Heatwave days", "days"),
             "events": ("Heatwave events", "events"),
             "longest": ("Longest heatwave", "days"),
@@ -229,9 +233,11 @@ HAZARDS = {
         },
     ),
     "heavy_rain": Hazard(
-        heavy_rain,
-        "precip",
-        {
+        label="Heavy rain",
+        detect=heavy_rain,
+        variable="precip",
+        params=("percentile",),
+        metrics={
             "days": ("Heavy-rain days", "days"),
             "events": ("Heavy-rain events", "events"),
             "heavy_total": ("Rain on heavy-rain days", "mm"),
@@ -239,9 +245,11 @@ HAZARDS = {
         },
     ),
     "drought": Hazard(
-        drought,
-        "precip",
-        {
+        label="Drought (dry spells)",
+        detect=drought,
+        variable="precip",
+        params=(),
+        metrics={
             "longest": ("Longest dry spell", "days"),
             "events": (f"Dry spells ≥ {LONG_DRY_SPELL_DAYS} days", "events"),
             "rainfall_anomaly": (f"Rainfall vs {BASELINE[0]}–{BASELINE[1]} normal", "%"),
