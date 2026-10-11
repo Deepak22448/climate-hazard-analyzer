@@ -41,6 +41,16 @@ const HAZARD_COLORS: Record<string, string> = {
 }
 const hazardColor = (hazard: string) => HAZARD_COLORS[hazard] ?? '#7c3aed'
 
+// Chart.js paints on a canvas, so it can't follow the CSS theme variables.
+// Every chart calls this while rendering, and the whole page re-renders when
+// the theme flips, so axes and lines always match the current theme.
+function themeColors() {
+  const dark = document.documentElement.classList.contains('dark')
+  ChartJS.defaults.color = dark ? '#a1a1aa' : '#71717a'
+  ChartJS.defaults.borderColor = dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+  return { ink: dark ? '#f4f4f5' : '#111827', muted: dark ? '#a1a1aa' : '#6b7280' }
+}
+
 type Values = (number | null)[]
 
 // Sen's slope comes back as two end points; the chart needs a value per year.
@@ -65,6 +75,7 @@ export function HeadlineChart({ analysis, selectedYear, onSelectYear }: Headline
   const trend = analysis.trends[key]
   const years = analysis.annual.map((row) => row.year)
   const color = hazardColor(analysis.hazard)
+  const theme = themeColors()
 
   const data: ChartData<'bar' | 'line', Values, number> = {
     labels: years,
@@ -73,14 +84,14 @@ export function HeadlineChart({ analysis, selectedYear, onSelectYear }: Headline
         type: 'bar',
         label: metric.label,
         data: analysis.annual.map((row) => row[key]),
-        backgroundColor: years.map((year) => (year === selectedYear ? '#111827' : `${color}b3`)),
+        backgroundColor: years.map((year) => (year === selectedYear ? theme.ink : `${color}b3`)),
         order: 3,
       },
       {
         type: 'line',
         label: '5-year average',
         data: analysis.annual.map((row) => row.rolling),
-        borderColor: '#111827',
+        borderColor: theme.ink,
         pointRadius: 0,
         tension: 0.3,
         order: 1,
@@ -91,7 +102,7 @@ export function HeadlineChart({ analysis, selectedYear, onSelectYear }: Headline
               type: 'line' as const,
               label: `Trend (Sen's slope${trend.significant ? '' : ', not significant'})`,
               data: trendLine(years, trend),
-              borderColor: '#6b7280',
+              borderColor: theme.muted,
               borderDash: [6, 4],
               pointRadius: 0,
               order: 2,
@@ -132,6 +143,7 @@ export function MetricChart({ analysis, metricKey }: { analysis: Analysis; metri
   const trend = analysis.trends[metricKey]
   const years = analysis.annual.map((row) => row.year)
   const color = hazardColor(analysis.hazard)
+  const theme = themeColors()
 
   const data: ChartData<'line', Values, number> = {
     labels: years,
@@ -149,7 +161,7 @@ export function MetricChart({ analysis, metricKey }: { analysis: Analysis; metri
             {
               label: 'Trend',
               data: trendLine(years, trend),
-              borderColor: '#6b7280',
+              borderColor: theme.muted,
               borderDash: [6, 4],
               pointRadius: 0,
             },
@@ -188,6 +200,7 @@ export function DailyChart({ analysis, pointIndex, year }: DailyProps) {
   const daily = useDaily(analysis, pointIndex, year)
   const point = analysis.region.points[pointIndex]
   const color = hazardColor(analysis.hazard)
+  const theme = themeColors()
 
   let body
   if (!year) {
@@ -219,7 +232,7 @@ export function DailyChart({ analysis, pointIndex, year }: DailyProps) {
           type: 'line',
           label: 'Threshold',
           data: threshold,
-          borderColor: '#111827',
+          borderColor: theme.ink,
           borderDash: [5, 4],
           pointRadius: 0,
           borderWidth: 1,

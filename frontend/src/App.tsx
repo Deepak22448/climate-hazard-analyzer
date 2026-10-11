@@ -1,4 +1,4 @@
-import { BookOpen, Database, ThermometerSun } from 'lucide-react'
+import { BookOpen, Database, Moon, Sun, ThermometerSun } from 'lucide-react'
 import { useState } from 'react'
 
 import { API_URL, describeRegion, fromQueryString, toQueryString, useAnalysis, useMeta } from '@/api'
@@ -16,9 +16,23 @@ const DEFAULT_REGION: Region = { kind: 'point', name: 'New Delhi', lat: 28.6139,
 
 export default function App() {
   const meta = useMeta()
+  // index.html already applied the saved theme; React just mirrors it.
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
+
+  function toggleTheme() {
+    const next = !dark
+    // Flip the class before re-rendering so charts read the new colours.
+    document.documentElement.classList.toggle('dark', next)
+    try {
+      localStorage.setItem('theme', next ? 'dark' : 'light')
+    } catch {
+      // Private mode or blocked storage: the toggle still works for this visit.
+    }
+    setDark(next)
+  }
   return (
     <div className="min-h-screen bg-muted/40">
-      <Header meta={meta.data} />
+      <Header meta={meta.data} dark={dark} onToggleTheme={toggleTheme} />
       {meta.isPending && <Skeleton className="mx-auto mt-4 h-96 max-w-7xl" />}
       {meta.isError && (
         <Alert variant="destructive" className="mx-auto mt-4 max-w-xl">
@@ -33,7 +47,9 @@ export default function App() {
   )
 }
 
-function Header({ meta }: { meta?: Meta }) {
+type HeaderProps = { meta?: Meta; dark: boolean; onToggleTheme: () => void }
+
+function Header({ meta, dark, onToggleTheme }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur print:static">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4">
@@ -62,6 +78,14 @@ function Header({ meta }: { meta?: Meta }) {
             render={<a href={`${API_URL}/docs`} target="_blank" rel="noreferrer" />}
           >
             <BookOpen /> <span className="hidden sm:inline">API docs</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleTheme}
+            aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {dark ? <Sun /> : <Moon />}
           </Button>
         </div>
       </div>

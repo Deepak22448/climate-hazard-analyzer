@@ -129,6 +129,11 @@
   }
 }
 
+/* OSM only serves light tiles; invert them so the map doesn't glare in dark mode. */
+.dark .leaflet-tile {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+
 /* "PDF" export is the browser's print dialog, so the page itself has to print well. */
 @media print {
   [data-slot='card'] {
