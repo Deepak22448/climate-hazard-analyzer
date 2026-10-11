@@ -215,6 +215,7 @@ class Hazard(NamedTuple):
     detect: Callable[[pd.DataFrame, HazardParams], Detection]
     variable: str  # daily column the threshold applies to
     params: tuple[str, ...]  # HazardParams fields this hazard actually uses
+    definition: str  # plain-English rule; analysis.py fills in the {placeholders}
     metrics: dict[str, tuple[str, str]]  # column -> (label, unit). The first one is the headline.
 
 
@@ -224,6 +225,8 @@ HAZARDS = {
         detect=heatwaves,
         variable="tmax",
         params=("percentile", "min_days", "method"),
+        definition="{min_days}+ consecutive days with max temperature above {threshold} "
+        "(the {percentile}th percentile of {baseline} {window}).",
         metrics={
             "days": ("Heatwave days", "days"),
             "events": ("Heatwave events", "events"),
@@ -237,6 +240,7 @@ HAZARDS = {
         detect=heavy_rain,
         variable="precip",
         params=("percentile",),
+        definition="Days with rainfall above {threshold} (the {percentile}th percentile of {baseline} wet days).",
         metrics={
             "days": ("Heavy-rain days", "days"),
             "events": ("Heavy-rain events", "events"),
@@ -249,6 +253,8 @@ HAZARDS = {
         detect=drought,
         variable="precip",
         params=(),
+        definition="A dry day has under {dry_mm} mm of rain. Tracks the longest run of dry days each year "
+        "and annual rainfall against the {baseline} average.",
         metrics={
             "longest": ("Longest dry spell", "days"),
             "events": (f"Dry spells ≥ {LONG_DRY_SPELL_DAYS} days", "events"),

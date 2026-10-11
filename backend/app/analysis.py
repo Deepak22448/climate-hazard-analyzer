@@ -14,7 +14,7 @@ import pandas as pd
 from shapely.geometry import Point, shape
 
 from app import sources, store
-from app.hazards import BASELINE, HAZARDS, HazardParams, clean
+from app.hazards import BASELINE, DRY_DAY_MM, HAZARDS, Hazard, HazardParams, clean
 from app.trends import (
     describe_change,
     describe_peak,
@@ -28,7 +28,7 @@ FIRST_YEAR = 1981  # NASA POWER daily data (MERRA-2) starts here
 GRID_LAT, GRID_LON = 0.5, 0.625  # MERRA-2 grid spacing in degrees
 MAX_POINTS = 9
 SHORT_RANGE_YEARS = 20
-ALGO_VERSION = 1  # bump when hazard logic changes so cached analyses are recomputed
+ALGO_VERSION = 2  # bump when hazard logic changes so cached analyses are recomputed
 
 
 def last_complete_year(today: date | None = None) -> int:
@@ -155,6 +155,7 @@ async def run_analysis(hazard_name: str, params: HazardParams, first: int, last:
         "baseline": list(BASELINE),
         "variable": hazard.variable,
         "region": {**region, "points": points},
+        "definition": write_definition(hazard, params, points),
         "metrics": {key: {"label": label, "unit": unit} for key, (label, unit) in hazard.metrics.items()},
         "annual": regional.rename_axis("year").reset_index().to_dict("records"),
         "trends": trends,
@@ -164,6 +165,24 @@ async def run_analysis(hazard_name: str, params: HazardParams, first: int, last:
         "qc": {**qc, "incomplete_years": sorted(qc["incomplete_years"])},
     }
     return without_nan(result)
+
+
+def write_definition(hazard: Hazard, params: HazardParams, points: list[dict]) -> str:
+    low = min(point["threshold"][0] for point in points)
+    high = max(point["threshold"][1] for point in points)
+    unit = "°C" if hazard.variable == "tmax" else "mm"
+    varies = high - low >= 0.05
+    threshold = f"{low:.1f}–{high:.1f} {unit}" if varies else f"{low:.1f} {unit}"
+    window = "daily maxima" if params.method == "annual" else "days within a week of the same date"
+    text = hazard.definition.format(
+        threshold=threshold,
+        percentile=f"{params.percentile:g}",
+        min_days=params.min_days,
+        baseline=f"{BASELINE[0]}–{BASELINE[1]}",
+        window=window,
+        dry_mm=f"{DRY_DAY_MM:g}",
+    )
+    return text + (" The threshold differs by season or grid point." if varies else "")
 
 
 def write_insights(metrics: dict, regional: pd.DataFrame, trends: dict) -> list[str]:
