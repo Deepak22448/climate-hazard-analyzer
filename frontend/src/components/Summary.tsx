@@ -3,7 +3,7 @@ import { Download, Printer, TrendingUp, TriangleAlert } from 'lucide-react'
 import { csvUrl } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Analysis } from '@/types'
 
 type Props = { analysis: Analysis; hazardLabel: string; regionName: string; query: string }
@@ -19,10 +19,6 @@ export function Summary({ analysis, hazardLabel, regionName, query }: Props) {
         <CardTitle className="text-base">
           {hazardLabel} · {regionName} · {first}–{last}
         </CardTitle>
-        <CardDescription>
-          <span className="font-medium text-foreground">Definition: </span>
-          {analysis.definition}
-        </CardDescription>
         <CardAction className="flex gap-2 print:hidden">
           <Button
             variant="outline"
