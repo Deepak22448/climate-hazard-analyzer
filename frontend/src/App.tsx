@@ -1,11 +1,14 @@
+import { BookOpen, Database, ThermometerSun } from 'lucide-react'
 import { useState } from 'react'
 
-import { describeRegion, fromQueryString, toQueryString, useAnalysis, useMeta } from '@/api'
+import { API_URL, describeRegion, fromQueryString, toQueryString, useAnalysis, useMeta } from '@/api'
 import { DailyChart, HeadlineChart, MetricChart } from '@/components/Charts'
 import { Controls } from '@/components/Controls'
 import { RegionMap } from '@/components/RegionMap'
 import { Summary } from '@/components/Summary'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Meta, Region, Settings } from '@/types'
 
@@ -15,14 +18,7 @@ export default function App() {
   const meta = useMeta()
   return (
     <div className="min-h-screen bg-muted/40">
-      <header className="border-b bg-background">
-        <div className="mx-auto max-w-7xl px-4 py-4">
-          <h1 className="text-xl font-semibold">Climate Hazard Trend Analyzer</h1>
-          <p className="text-sm text-muted-foreground">
-            How heatwaves, heavy rain and dry spells have changed since 1981, from NASA POWER daily data.
-          </p>
-        </div>
-      </header>
+      <Header meta={meta.data} />
       {meta.isPending && <Skeleton className="mx-auto mt-4 h-96 max-w-7xl" />}
       {meta.isError && (
         <Alert variant="destructive" className="mx-auto mt-4 max-w-xl">
@@ -34,6 +30,42 @@ export default function App() {
       )}
       {meta.data && <Dashboard meta={meta.data} />}
     </div>
+  )
+}
+
+function Header({ meta }: { meta?: Meta }) {
+  return (
+    <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur print:static">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-orange-500 to-red-600 text-white shadow-sm">
+          <ThermometerSun className="size-5" />
+        </div>
+        <div className="min-w-0">
+          <h1 className="truncate text-base leading-tight font-semibold tracking-tight">
+            Climate Hazard Trend Analyzer
+          </h1>
+          <p className="hidden truncate text-xs text-muted-foreground sm:block">
+            Heatwaves, heavy rain and dry spells since 1981, tested for real trends
+          </p>
+        </div>
+        <div className="ml-auto flex items-center gap-2 print:hidden">
+          {meta && (
+            <Badge variant="secondary" className="hidden md:inline-flex">
+              <Database /> NASA POWER · MERRA-2 · {meta.first_year}–{meta.last_year}
+            </Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            nativeButton={false}
+            aria-label="API docs"
+            render={<a href={`${API_URL}/docs`} target="_blank" rel="noreferrer" />}
+          >
+            <BookOpen /> <span className="hidden sm:inline">API docs</span>
+          </Button>
+        </div>
+      </div>
+    </header>
   )
 }
 
@@ -79,8 +111,8 @@ function Dashboard({ meta }: { meta: Meta }) {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 p-4 lg:grid-cols-[340px_1fr]">
-      {/* Sticky only in the two-column layout; self-start stops the grid stretching it to full height. */}
-      <aside className="space-y-4 print:hidden lg:sticky lg:top-4 lg:self-start">
+      {/* Sticky below the header, only in the two-column layout; self-start stops the grid stretching it. */}
+      <aside className="space-y-4 print:hidden lg:sticky lg:top-20 lg:self-start">
         <Controls
           meta={meta}
           mode={mode}
