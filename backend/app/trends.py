@@ -14,6 +14,10 @@ PERCENT_UNITS = {"days", "events", "mm"}
 MIN_BASE_FOR_PERCENT = 1.0
 
 
+def format_p(p: float) -> str:
+    return "p < 0.001" if p < 0.001 else f"p = {p:.3f}"
+
+
 def rolling_mean(values: pd.Series) -> pd.Series:
     return values.rolling(ROLLING_YEARS, center=True, min_periods=3).mean()
 
@@ -75,7 +79,7 @@ def describe_trend(unit: str, trend: dict | None) -> str:
         direction = "increase" if trend["sen_per_decade"] > 0 else "decrease"
         return (
             f"Statistically significant {direction}: {trend['sen_per_decade']:+.1f} {unit} per decade "
-            f"(Sen's slope; Mann-Kendall p = {trend['mk_p']:.3f})."
+            f"(Sen's slope; Mann-Kendall {format_p(trend['mk_p'])})."
         )
     return (
         f"No statistically significant trend (Mann-Kendall p = {trend['mk_p']:.2f}). "
@@ -96,4 +100,4 @@ def describe_side_trend(label: str, unit: str, trend: dict | None) -> str | None
     if trend is None or not trend["significant"]:
         return None
     direction = "rising" if trend["sen_per_decade"] > 0 else "falling"
-    return f"{label}: also {direction}, {trend['sen_per_decade']:+.2f} {unit} per decade (p = {trend['mk_p']:.3f})."
+    return f"{label}: also {direction}, {trend['sen_per_decade']:+.2f} {unit} per decade ({format_p(trend['mk_p'])})."

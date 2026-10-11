@@ -27,8 +27,9 @@ from app.trends import (
 FIRST_YEAR = 1981  # NASA POWER daily data (MERRA-2) starts here
 GRID_LAT, GRID_LON = 0.5, 0.625  # MERRA-2 grid spacing in degrees
 MAX_POINTS = 9
+LATTICE_SIZE = 6
 SHORT_RANGE_YEARS = 20
-ALGO_VERSION = 2  # bump when hazard logic changes so cached analyses are recomputed
+ALGO_VERSION = 3  # bump when hazard logic changes so cached analyses are recomputed
 
 
 def last_complete_year(today: date | None = None) -> int:
@@ -45,16 +46,20 @@ def snap(lat: float, lon: float) -> tuple[float, float]:
 def sample_points(bbox: list[float], outline=None) -> list[tuple[float, float]]:
     """Up to MAX_POINTS grid cells spread evenly over a box or state.
 
-    ponytail: a 4x4 lattice thinned to 9 cells. Enough to see a regional signal,
+    ponytail: a 6x6 lattice thinned to 9 cells. Enough to see a regional signal,
     and it caps upstream downloads. A huge state gets the same 9 cells as a
-    small one; use a denser lattice if that ever matters.
+    small one; raise MAX_POINTS if that ever matters.
     """
     south, west, north, east = bbox
-    steps = (np.arange(4) + 0.5) / 4
+    steps = (np.arange(LATTICE_SIZE) + 0.5) / LATTICE_SIZE
     lattice = [(south + (north - south) * a, west + (east - west) * b) for a in steps for b in steps]
     if outline is not None:
         lattice = [(lat, lon) for lat, lon in lattice if outline.contains(Point(lon, lat))]
     cells = list(dict.fromkeys(snap(lat, lon) for lat, lon in lattice))  # snapping can merge neighbours
+    if outline is not None:
+        # Snapping can push a cell centre across a coastline into the sea. Prefer
+        # cells still inside; a very thin state may have none, so keep the rest then.
+        cells = [(lat, lon) for lat, lon in cells if outline.contains(Point(lon, lat))] or cells
     if not cells:  # tiny or oddly shaped region
         middle = outline.representative_point() if outline is not None else None
         return [snap(middle.y, middle.x) if middle else snap((south + north) / 2, (west + east) / 2)]
