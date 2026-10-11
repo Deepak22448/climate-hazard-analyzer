@@ -79,7 +79,8 @@ function Dashboard({ meta }: { meta: Meta }) {
 
   return (
     <main className="mx-auto grid max-w-7xl gap-4 p-4 lg:grid-cols-[340px_1fr]">
-      <aside className="space-y-4 print:hidden">
+      {/* Sticky only in the two-column layout; self-start stops the grid stretching it to full height. */}
+      <aside className="space-y-4 print:hidden lg:sticky lg:top-4 lg:self-start">
         <Controls
           meta={meta}
           mode={mode}
