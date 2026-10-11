@@ -29,7 +29,7 @@ npm run lint && npm run format  # oxlint + prettier
 | `src/components/Controls.tsx` | Region tabs, hazard, years, advanced definition |
 | `src/components/PlaceSearch.tsx` | City/state autocomplete |
 | `src/components/RegionMap.tsx` | Leaflet map: pick a point, draw a box, analysed cells |
-| `src/components/Summary.tsx` | Insights, data-quality badges, caveats, CSV/PDF buttons |
+| `src/components/Summary.tsx` | Insights, caveats, data-quality line, CSV/PDF buttons |
 | `src/components/Charts.tsx` | Headline chart, per-metric charts, daily view |
 | `src/index.css` | Theme colours, dark-mode map tiles, print stylesheet |
 | `src/components/ui/` | Generated shadcn/ui components (not hand-written) |

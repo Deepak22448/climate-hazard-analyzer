@@ -17,7 +17,7 @@ Pick a city, a state or a box on the map, and see how heatwaves (or heavy rain, 
   - **One small chart per secondary metric,** each with a badge saying whether its trend is significant.
   - **Map** of the analysed grid cells, red if the headline metric is rising and blue if falling. Click a cell to use it for the daily view.
   - **Daily view.** Click a year to see its daily values against the threshold, with each event shaded.
-  - **Data-quality badges:** missing days, values removed by QC, years excluded.
+  - **Data-quality line** at the bottom of the results card: number of grid cells, and "complete record" when nothing was wrong. Missing days, QC removals or excluded years show up there as badges (red for excluded years, since they change the trend).
 - **Export:** CSV of the yearly table, and PDF through the browser's print dialog (with a print stylesheet).
 - **Shareable links:** the page URL holds the full query.
 - **Light and dark theme.** It follows the system setting and remembers your choice.
@@ -169,7 +169,7 @@ File-by-file guides: [backend/README.md](backend/README.md) (modules, MongoDB co
 
 ## Data handling
 
-Quality control is the `clean()` function in [`backend/app/hazards.py`](backend/app/hazards.py) and runs on every read. Its counts go back with every analysis and appear as badges in the UI. The badges cover the cell's whole 1981–present record.
+Quality control is the `clean()` function in [`backend/app/hazards.py`](backend/app/hazards.py) and runs on every read. Its counts go back with every analysis and appear on the data-quality line in the UI. Missing-day and QC counts cover the cell's whole 1981–present record.
 
 - **Fill values:** NASA's `-999` becomes "missing".
 - **Units:** asserted on every download (°C and mm/day). If NASA ever changed units, the app fails loudly instead of quietly treating Kelvin as °C.

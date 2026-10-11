@@ -11,6 +11,21 @@ type Props = { analysis: Analysis; hazardLabel: string; regionName: string; quer
 export function Summary({ analysis, hazardLabel, regionName, query }: Props) {
   const { qc } = analysis
   const [first, last] = analysis.years
+  const cells = analysis.region.points.length
+
+  // Data quality stays quiet when all is well and only speaks up when something
+  // was actually fixed or left out. Excluded years are flagged red because they
+  // change the trend; missing or removed values were already handled.
+  const issues: { text: string; serious: boolean }[] = []
+  if (qc.incomplete_years.length > 0) {
+    issues.push({ text: `Years excluded from trends: ${qc.incomplete_years.join(', ')}`, serious: true })
+  }
+  if (qc.missing_days > 0) {
+    issues.push({ text: `${qc.missing_days} missing days in the full record`, serious: false })
+  }
+  if (qc.flagged_values > 0) {
+    issues.push({ text: `${qc.flagged_values} values removed by QC`, serious: false })
+  }
 
   return (
     <Card>
@@ -33,7 +48,7 @@ export function Summary({ analysis, hazardLabel, regionName, query }: Props) {
           </Button>
         </CardAction>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="flex flex-1 flex-col gap-4">
         <ul className="space-y-2">
           {analysis.insights.map((line) => (
             <li key={line} className="flex gap-2">
@@ -42,19 +57,6 @@ export function Summary({ analysis, hazardLabel, regionName, query }: Props) {
             </li>
           ))}
         </ul>
-
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">
-            {analysis.region.points.length} grid cell{analysis.region.points.length > 1 && 's'}
-          </Badge>
-          <Badge variant="outline">{qc.missing_days} missing days (whole record)</Badge>
-          <Badge variant="outline">{qc.flagged_values} values removed by QC (whole record)</Badge>
-          <Badge variant={qc.incomplete_years.length ? 'destructive' : 'outline'}>
-            {qc.incomplete_years.length
-              ? `Years excluded: ${qc.incomplete_years.join(', ')}`
-              : 'No years excluded'}
-          </Badge>
-        </div>
 
         {analysis.caveats.length > 0 && (
           <ul className="space-y-1 text-xs text-muted-foreground">
@@ -66,6 +68,19 @@ export function Summary({ analysis, hazardLabel, regionName, query }: Props) {
             ))}
           </ul>
         )}
+
+        {/* mt-auto pins the data line to the card's bottom when the card is stretched */}
+        <div className="mt-auto flex flex-wrap items-center gap-2 border-t pt-3 text-xs text-muted-foreground">
+          <span>
+            Data: {cells} grid cell{cells > 1 && 's'}
+            {issues.length === 0 && ' · complete record · no QC removals'}
+          </span>
+          {issues.map((issue) => (
+            <Badge key={issue.text} variant={issue.serious ? 'destructive' : 'outline'}>
+              {issue.text}
+            </Badge>
+          ))}
+        </div>
       </CardContent>
     </Card>
   )
