@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: climate-hazard-api
+    runtime: docker
+    rootDir: backend
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: MONGO_URI # MongoDB Atlas connection string
+        sync: false
+      - key: ALLOWED_ORIGINS # the Vercel URL, e.g. https://climate-hazards.vercel.app
+        sync: false
