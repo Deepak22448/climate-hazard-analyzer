@@ -33,22 +33,14 @@ cd backend
 uv sync
 uv run uvicorn app.main:app --reload          # http://localhost:8000/docs
 uv run pytest                                 # hazard + trend tests
-uv run ruff check . && uv run ruff format .   # lint + format
 uv run python seed.py                         # optional: pre-download demo cities
 
 cd ../frontend
 npm install
 npm run dev                                   # http://localhost:5173
-npm run lint && npm run format                # oxlint + prettier
 ```
 
-Environment variables (all optional locally):
-
-| Variable | Where | Default |
-|---|---|---|
-| `MONGO_URI` | backend | `mongodb://localhost:27017` |
-| `ALLOWED_ORIGINS` | backend | `http://localhost:5173` (comma-separated) |
-| `VITE_API_URL` | frontend | `http://localhost:8000` |
+Environment variables and more commands: [backend/README.md](backend/README.md) and [frontend/README.md](frontend/README.md).
 
 ## Deploy
 
@@ -110,27 +102,9 @@ What happens on `GET /api/analysis`:
 
 `GET /api/daily` (the year drill-down) reloads one cell from `weather_daily` and re-runs QC and detection. It never calls NASA.
 
-| Backend file | What's in it |
-|---|---|
-| `app/main.py` | HTTP layer: request models and validation, rate limits, CSV export |
-| `app/analysis.py` | The flow above: region → cells → data → regional result |
-| `app/hazards.py` | QC and hazard detection. Pure functions, no I/O |
-| `app/trends.py` | Rolling mean, regression, Mann-Kendall / Sen's slope, insight sentences |
-| `app/sources.py` | NASA POWER, Open-Meteo and Nominatim clients (retry, backoff, politeness limits) |
-| `app/store.py` | MongoDB collections |
-| `seed.py` | Pre-downloads demo cities |
+File-by-file guides: [backend/README.md](backend/README.md) (modules, MongoDB collections, API, where to make common changes) and [frontend/README.md](frontend/README.md) (components, URL state, caching, theme).
 
-| Frontend file | What's in it |
-|---|---|
-| `src/App.tsx` | Page layout, header and theme toggle, form state, "Analyse" |
-| `src/api.ts` | API calls (TanStack Query hooks), page URL ⇄ query string |
-| `src/components/Controls.tsx` | Region tabs, hazard, years, advanced definition |
-| `src/components/PlaceSearch.tsx` | City/state autocomplete |
-| `src/components/RegionMap.tsx` | Leaflet map: pick a point, draw a box, analysed cells |
-| `src/components/Summary.tsx` | Insights, data-quality badges, caveats, CSV/PDF buttons |
-| `src/components/Charts.tsx` | Headline chart, per-metric charts, daily view |
-
-**Adding a hazard:** one detection function and one entry in `HAZARDS` in `hazards.py`. `/api/meta` lists the hazards and the parameters each one uses, and every analysis response carries its own metric labels and units, so the frontend picks the new hazard up without changes. Optionally, give it a chart colour in `HAZARD_COLORS` in `Charts.tsx`; otherwise it uses a default colour.
+**Adding a hazard** is one detection function and one entry in `HAZARDS` in `backend/app/hazards.py`. The frontend reads the hazard list and metric labels from the API, so it needs no changes.
 
 ## Data source
 
@@ -260,16 +234,7 @@ Quality control lives in `hazards.clean` and runs on every read. Its counts go b
 
 ## API reference
 
-Interactive docs are at `/docs` (FastAPI's OpenAPI UI).
-
-| Endpoint | Purpose |
-|---|---|
-| `GET /api/health` | Liveness check |
-| `GET /api/meta` | Year range, hazards, and the parameters each hazard uses |
-| `GET /api/places?q=&kind=city\|state` | Place search |
-| `GET /api/analysis?hazard=&lat=&lon=` (or `bbox=s,w,n,e` or `state=`) `&start=&end=&percentile=&min_days=&method=` | Full analysis |
-| `GET /api/analysis.csv?…` | Same parameters; the yearly table as CSV |
-| `GET /api/daily?hazard=&lat=&lon=&year=…` | One year of daily values, threshold and events for one cell |
+Endpoints and rate limits: [backend/README.md](backend/README.md#api). Interactive docs are at `/docs` on the running backend.
 
 ## AI tools used
 
