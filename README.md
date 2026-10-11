@@ -8,34 +8,38 @@ Pick a city, a state or a box on the map, and see how heatwaves (or heavy rain, 
 
 ## What it does
 
-- **Region:** city search, state/province search (with its outline), click on the map, or draw a box.
+- **Region:** search a city, search a state/province (its outline is drawn on the map), click anywhere on the map, or draw a box by clicking two corners.
 - **Hazard:** Heatwave by default, plus Heavy rain and Drought (dry spells).
 - **Years:** any range of at least 10 years between 1981 and the last complete year.
-- **Output:**
-  - Insights in plain English ("+3.4 heatwave days per decade, Mann-Kendall p = 0.002").
-  - Yearly charts with a 5-year average and trend line.
-  - One small chart per secondary metric.
-  - A map of the analysed grid cells coloured by trend.
-  - Click a year to see its daily temperatures against the threshold, with each event shaded.
-- **Export:** CSV of the yearly table, and PDF through the browser's print dialog.
+- **Results:**
+  - **Plain-English insights.** For example: "Statistically significant increase: +3.4 days per decade (Sen's slope; Mann-Kendall p = 0.002)."
+  - **Headline chart:** bars per year, a 5-year average, and a Sen's-slope trend line. The linear-regression slope and its 95% confidence interval are shown alongside.
+  - **One small chart per secondary metric,** each with a badge saying whether its trend is significant.
+  - **Map** of the analysed grid cells, red if the headline metric is rising and blue if falling. Click a cell to use it for the daily view.
+  - **Daily view.** Click a year to see its daily values against the threshold, with each event shaded.
+  - **Data-quality badges:** missing days, values removed by QC, years excluded.
+- **Export:** CSV of the yearly table, and PDF through the browser's print dialog (with a print stylesheet).
 - **Shareable links:** the page URL holds the full query.
+- **Light and dark theme.** It follows the system setting and remembers your choice.
 
 ## Run it locally
 
 Needs Python 3.12 + [uv](https://docs.astral.sh/uv/), Node ≥ 20.19, and MongoDB (Docker is easiest).
 
 ```bash
-docker run -d --name climate-mongo -p 27017:27017 mongo:8
+docker run -d --name climate-mongo -p 27017:27017 mongo:8   # mongodb://localhost:27017
 
 cd backend
 uv sync
 uv run uvicorn app.main:app --reload          # http://localhost:8000/docs
 uv run pytest                                 # hazard + trend tests
+uv run ruff check . && uv run ruff format .   # lint + format
 uv run python seed.py                         # optional: pre-download demo cities
 
 cd ../frontend
 npm install
 npm run dev                                   # http://localhost:5173
+npm run lint && npm run format                # oxlint + prettier
 ```
 
 Environment variables (all optional locally):
@@ -45,6 +49,14 @@ Environment variables (all optional locally):
 | `MONGO_URI` | backend | `mongodb://localhost:27017` |
 | `ALLOWED_ORIGINS` | backend | `http://localhost:5173` (comma-separated) |
 | `VITE_API_URL` | frontend | `http://localhost:8000` |
+
+## Deploy
+
+1. **MongoDB Atlas:** create a free M0 cluster and a database user, and copy the `mongodb+srv://…` connection string.
+2. **Render:** create a new Blueprint from this repo. `render.yaml` builds `backend/Dockerfile`. Set `MONGO_URI` to the Atlas string.
+3. **Vercel:** import the repo with root directory `frontend`, and set `VITE_API_URL` to the Render URL.
+4. **CORS:** back on Render, set `ALLOWED_ORIGINS` to the Vercel URL.
+5. **Optional:** pre-download the demo cities with `MONGO_URI="mongodb+srv://…" uv run python seed.py`, run from `backend/`.
 
 ## Architecture
 
@@ -60,40 +72,54 @@ React + Vite (Vercel) ──GET──> FastAPI (Render, Docker) ──> MongoDB 
 
 What happens on `GET /api/analysis`:
 
-1. **Cache check.** Look up the request (normalised, plus an algorithm version) in `analyses`. On a hit, return it (~60 ms).
-2. **Grid cells.** Turn the region into grid cells:
-   - A city or clicked point becomes 1 cell.
-   - A box or state becomes up to 9 cells spread over it, keeping only cells whose centre is inside the state outline.
-3. **Daily data.** Load each cell's daily data from `weather_daily`.
-   - Missing cells are downloaded from NASA POWER: 45 years in one call, ~2 s.
-   - A per-cell lock means simultaneous requests share one download.
-4. **QC, then detection.** Run quality control, then hazard detection, **per cell**.
-5. **Combine.** Average the yearly metrics across cells, fit trends, and write the insights.
-6. **Store and return.** Save the result to `analyses` and return it.
+1. **Validate** the query (Pydantic) and apply the per-IP rate limit.
+2. **Cache check.** Hash the normalised query plus `ALGO_VERSION` (SHA-256) and look it up in `analyses`. On a hit, return it (~60 ms).
+3. **Grid cells.** Turn the region into grid cells:
+   - A city or clicked point snaps to the 1 cell containing it.
+   - A box or state is sampled with a 6×6 lattice, snapped to cells, and thinned to at most 9. For a state, only cells whose centre lies inside the outline are kept, so coastal states don't pick up sea cells.
+4. **Daily data.** Load each cell's years from `weather_daily`.
+   - Missing years are downloaded from NASA POWER: one call returns up to 45 years in ~2 s. They're saved as one document per year.
+   - A per-cell lock means simultaneous requests for a new cell share one download.
+5. **QC, then detection.** Run quality control, then hazard detection, **per cell**.
+6. **Combine.** Average the yearly metrics across cells, fit trends, and write the insights and caveats.
+7. **Store and return.** Save the result to `analyses` and return it as gzip-compressed JSON.
+
+`GET /api/daily` (the year drill-down) reloads one cell from `weather_daily` and re-runs QC and detection. It never calls NASA.
 
 | Backend file | What's in it |
 |---|---|
-| `app/main.py` | HTTP layer: request models and validation, rate limits, caching headers, CSV export |
+| `app/main.py` | HTTP layer: request models and validation, rate limits, CSV export |
 | `app/analysis.py` | The flow above: region → cells → data → regional result |
 | `app/hazards.py` | QC and hazard detection. Pure functions, no I/O |
 | `app/trends.py` | Rolling mean, regression, Mann-Kendall / Sen's slope, insight sentences |
 | `app/sources.py` | NASA POWER, Open-Meteo and Nominatim clients (retry, backoff, politeness limits) |
 | `app/store.py` | MongoDB collections |
+| `seed.py` | Pre-downloads demo cities |
 
-The frontend has no hazard-specific code. `/api/meta` lists the hazards and the parameters each one uses, and every analysis response carries its own metric labels and units. Adding a hazard is one function and one entry in `HAZARDS` in `hazards.py`.
+| Frontend file | What's in it |
+|---|---|
+| `src/App.tsx` | Page layout, header and theme toggle, form state, "Analyse" |
+| `src/api.ts` | API calls (TanStack Query hooks), page URL ⇄ query string |
+| `src/components/Controls.tsx` | Region tabs, hazard, years, advanced definition |
+| `src/components/PlaceSearch.tsx` | City/state autocomplete |
+| `src/components/RegionMap.tsx` | Leaflet map: pick a point, draw a box, analysed cells |
+| `src/components/Summary.tsx` | Insights, data-quality badges, caveats, CSV/PDF buttons |
+| `src/components/Charts.tsx` | Headline chart, per-metric charts, daily view |
+
+**Adding a hazard:** one detection function and one entry in `HAZARDS` in `hazards.py`. `/api/meta` lists the hazards and the parameters each one uses, and every analysis response carries its own metric labels and units, so the frontend picks the new hazard up without changes. Optionally, give it a chart colour in `HAZARD_COLORS` in `Charts.tsx`; otherwise it uses a default colour.
 
 ## Data source
 
 **NASA POWER daily point API**: MERRA-2 reanalysis, a 0.5° × 0.625° grid (~50 km), 1981 to present, no API key.
 
 - **Variables:** daily max and min 2 m temperature, and bias-corrected precipitation.
-- **Why not Open-Meteo (the original plan):** I tested its archive API first. One 44-year daily request for a single location used up the whole free per-minute quota, and the second request got `429 Minutely API request limit exceeded`. Open-Meteo counts long requests as many calls, so the free tier allows roughly 8 new locations a day. NASA POWER returned three back-to-back 45-year downloads in ~2 s each with no throttling.
+- **Why not Open-Meteo (the original plan):** I tested its archive API first. The first 44-year daily request for one location succeeded. The second, a few seconds later, got `429 Minutely API request limit exceeded`. Open-Meteo counts a long request as many calls, and by its published weighting the free tier allows only about 8 new 45-year locations a day. NASA POWER returned three back-to-back 45-year downloads in ~2 s each, with no throttling.
 - **Trade-offs of NASA POWER:**
   - No data before 1981.
-  - A coarser grid. Reanalysis smooths local extremes, so a weather station would record more hot days than the grid cell. Trends are more reliable than absolute counts.
+  - A coarser grid. Reanalysis smooths local extremes: Paris's hottest day in 2019 is 39.6 °C in its grid cell, against the 42.6 °C station record. Trends are more reliable than absolute values.
 - **Geocoding:**
-  - Open-Meteo for cities, which is cheap and generous.
-  - Nominatim for states, because it returns the outline polygon. Its policy of at most 1 request a second is enforced with a lock.
+  - Open-Meteo for cities, which is fast and generous. The frontend sends the city's coordinates, so nothing needs storing.
+  - Nominatim for states, because it returns the outline polygon. The backend needs that outline, and Nominatim allows at most 1 request a second (enforced with a lock), so outlines are cached in `places`.
 
 ## Hazard logic
 
@@ -102,9 +128,10 @@ The frontend has no hazard-specific code. `/api/meta` lists the hazards and the 
 **Definition:** at least 3 consecutive days with daily max temperature above the 95th percentile, as in the brief.
 
 - **The percentile comes from a fixed 1981–2010 baseline, not from the years you select.** If the threshold were computed from the selected years, it would move whenever you changed the range. A warming period would also partly define its own "normal" and hide part of its own trend.
-- **Two ways to compute the threshold** (Advanced → "Threshold compared against"):
+- **Two ways to compute the threshold** (Advanced definition → "Threshold compared against"):
   - **Whole year (default).** One threshold: the 95th percentile of all baseline days. Only the hot season can cross it, which matches what people mean by a heatwave.
   - **Same time of year.** A separate 95th percentile for each calendar day, from a 15-day window (the ETCCDI approach). This also catches unusually warm spells in winter.
+- **Percentile and minimum run length** are adjustable (80–99 and 2–10 days).
 - **Yearly metrics** (after Perkins & Alexander 2013):
   - Heatwave days (the headline)
   - Number of events
@@ -117,7 +144,8 @@ The frontend has no hazard-specific code. `/api/meta` lists the hazards and the 
 ### Heavy rain
 
 - Days with rainfall above the 95th percentile of baseline **wet** days (≥ 1 mm). This is the R95p idea.
-- Reported per year: number of such days, events, rain falling on those days, and the wettest day.
+- Only one threshold for the whole year: a 15-day window holds too few wet days for a stable percentile.
+- Reported per year: number of such days, events (consecutive heavy days), rain falling on those days, and the wettest day.
 
 ### Drought (proxy)
 
@@ -127,18 +155,23 @@ The frontend has no hazard-specific code. `/api/meta` lists the hazards and the 
 
 ## Trends and insights
 
-- **Trend test:** Mann-Kendall plus Sen's slope (`scipy.stats.kendalltau` and `theilslopes`), reported per decade. These are rank-based, so one extreme year can't drag the result around, and they make no assumption about how counts are distributed. Ordinary least-squares regression with a 95% confidence interval is returned as well.
+- **Trend test:** Mann-Kendall plus Sen's slope (`scipy.stats.kendalltau` and `theilslopes`), reported per decade. These are rank-based, so one extreme year can't drag the result around, and they make no assumption about how counts are distributed.
+- **Cross-check:** ordinary least-squares regression (`scipy.stats.linregress`), shown with its 95% confidence interval.
 - **"Significant" means p < 0.05.** The test assumes years are independent, and climate series are mildly autocorrelated, so p-values near 0.05 are borderline.
 - **Insight sentences follow fixed rules so they stay honest:**
   - They compare the **first-decade average with the last-decade average**, never two single years.
-  - Percent change is shown only for counts, and only when the starting value is at least 1 a year. "+300%" from 0.5 to 2 days misleads.
+  - Percent change is shown only for counts and totals, and only when the starting value is at least 1 a year. "+300%" from 0.5 to 2 days misleads.
   - Every trend sentence states whether it is statistically significant. If it isn't, it says so.
-  - A caveat appears when fewer than 20 years are selected, and when years were excluded.
+  - A secondary metric gets its own line only when its trend is significant.
+  - Caveats appear only when they apply:
+    - fewer than 20 years selected
+    - years excluded for missing data
+    - a region averaged over several cells
 - **Example of why this matters:** Paris shows a significant +3.4 heatwave days per decade for 1981–2025 (p = 0.002), but **no trend for 1991–2020** (12.0 → 13.5 days a year, p = 0.83). The long-run signal comes from the cool 1980s and recent hot summers such as 2022 (41 days) and 2023. The tool reports both readings rather than picking one.
 
 ## Data handling
 
-Quality control in `hazards.clean`. The results go back with every analysis and appear as badges in the UI.
+Quality control lives in `hazards.clean` and runs on every read. Its counts go back with every analysis and appear as badges in the UI. The badges cover the cell's whole 1981–present record.
 
 - **Fill values:** NASA's `-999` becomes "missing".
 - **Units:** asserted on every download (°C and mm/day). If NASA ever changed units, the app fails loudly instead of quietly treating Kelvin as °C.
@@ -146,7 +179,10 @@ Quality control in `hazards.clean`. The results go back with every analysis and 
 - **Plausibility bounds:** Tmax between −90 and 60 °C, Tmin ≤ Tmax, rain between 0 and 2,000 mm. Values outside are removed.
 - **Outliers:** temperatures more than 6 standard deviations from the normal for that calendar day are removed. Rain is exempt, because heavy rain is supposed to be extreme.
 - **A missing day ends a heatwave run** instead of being bridged over.
-- **Incomplete years:** a year missing more than 5% of its days is left out of trends and shown as a gap. Counting it as zero would fake a decline. The current partial year is never used.
+- **Incomplete years:** a year missing (or QC-rejecting) more than 5% of its days is left out of trends and shown as a gap. Counting it as zero would fake a decline.
+  - Its events are dropped too.
+  - In a multi-cell region, a year incomplete at any cell is left out for the whole region.
+  - The current partial year is never used.
 - **Raw values are stored before QC,** so changing a QC rule never needs a re-download.
 
 ## Security and performance
@@ -155,35 +191,35 @@ Quality control in `hazards.clean`. The results go back with every analysis and 
   - Coordinate ranges, box at most 10° per side.
   - Years from 1981 to the last complete year, and at least 10 of them.
   - Percentile 80–99.9, minimum days 2–10.
-  - Hazard must be a known name, state id must match `^[NWR]\d+$`, search text 2–80 characters.
+  - Hazard must be a known name, state id must match `^[NWR]\d{1,12}$`, search text 2–80 characters.
   - Bad input returns 422 with a readable message.
 - **No SSRF:** outbound URLs are fixed constants, and user input only ever goes into query parameters.
-- **Rate limits per IP** (slowapi): analysis 20/min, place search 30/min, daily data 60/min. Uvicorn runs with `--proxy-headers` so the limiter sees the real client IP behind Render's proxy.
+- **Rate limits per IP** (slowapi): analysis and CSV 20/min, place search 30/min, daily view 60/min. The Docker image runs uvicorn with `--proxy-headers`, so the limiter sees the real client IP behind Render's proxy.
 - **Being polite upstream:**
   - At most 3 concurrent NASA requests, and 1 Nominatim request per second.
   - Retries with exponential backoff on 429/5xx and network errors.
   - If the provider stays down, the API returns 502 with a friendly message and no stack trace.
 - **Caching:**
-  - Raw data in Mongo (permanent), finished analyses (7 days), state outlines (30 days).
-  - Place searches carry `Cache-Control` for a day. Analyses deliberately don't: a browser-cached copy would outlive an `ALGO_VERSION` bump after a deploy.
-  - In-browser caching via TanStack Query.
-  - Responses are gzip-compressed.
+  - **MongoDB:** raw data (permanent), finished analyses (7 days), state outlines (30 days).
+  - **Browser:** TanStack Query caches responses within a session.
+  - **No HTTP caching for analyses:** they carry no browser `Cache-Control`, and the frontend fetches with `cache: 'no-cache'`. A browser-cached copy would outlive an `ALGO_VERSION` bump after a deploy. Place searches keep a one-day `Cache-Control`.
+  - **Compression:** responses over 1 KB are gzip-compressed.
 - **CORS** allows only the frontend's origin and GET requests. Secrets live only in environment variables.
 
 ## Sanity checks against known events
 
 | Event | What the app shows |
 |---|---|
-| Moscow 2010 heatwave | Top year by far: 49 heatwave days, including a 43-day event (5 Jul – 16 Aug) |
-| Paris 2019 (record 42.6 °C) and 2003 | 2019 has the hottest heatwave day of 1981–2024, and 2003 is third |
+| Moscow 2010 heatwave | Top year: 49 heatwave days, including a 43-day event (5 Jul – 16 Aug) |
+| Paris 2019 (record 42.6 °C) and 2003 | For 1981–2024, 2019 has the hottest heatwave day (39.6 °C in the grid cell) and 2003 is third |
 | Mumbai floods, 26 July 2005 | 2005 is the top heavy-rain year |
-| Chicago 1995 | **Not** a top year. That disaster was driven by humidity (heat index), which a Tmax-only definition misses. This is a known limitation, listed below |
+| Chicago 1995 | **Not** a top year (22nd of 45 by heatwave days). That disaster was driven by humidity (heat index), which a Tmax-only definition misses. This is a known limitation, listed below |
 
 ## Assumptions
 
 - "Heatwave" uses daily **max** temperature only, with no humidity or night-time minimum.
 - A "state" is whatever OpenStreetMap tags as a state/province. Large states are represented by at most 9 sample cells.
-- A city is analysed as the single grid cell containing it (~50 × 70 km), not the urban area itself.
+- A city is analysed as the single ~50 km grid cell containing it, not the urban area itself.
 - Boxes that cross the antimeridian aren't supported.
 
 ## What I would improve with more time
@@ -204,6 +240,7 @@ Interactive docs are at `/docs` (FastAPI's OpenAPI UI).
 
 | Endpoint | Purpose |
 |---|---|
+| `GET /api/health` | Liveness check |
 | `GET /api/meta` | Year range, hazards, and the parameters each hazard uses |
 | `GET /api/places?q=&kind=city\|state` | Place search |
 | `GET /api/analysis?hazard=&lat=&lon=` (or `bbox=s,w,n,e` or `state=`) `&start=&end=&percentile=&min_days=&method=` | Full analysis |
@@ -217,6 +254,7 @@ _TODO (author): review and adjust this to match how you actually worked._
 - **Claude Code (Claude Opus 5.5)** was used throughout as a pair programmer:
   - **Planning:** read the brief and proposed the architecture. I chose the stack, hazard scope and deployment target.
   - **Research:** checked API limits and found the Open-Meteo quota problem with a small test before any code was written.
-  - **Code:** wrote the backend and frontend, with my review at each step.
+  - **Code:** wrote the backend and frontend with my review at each step. I directed the UI changes (layout, header, theme, what the results card shows).
+  - **Review:** a separate review pass found bugs that were then fixed, e.g. excluded years counted as 0% affected, and month labels shifted in US timezones.
   - **Testing:** drove a headless browser to click through the UI and check the print layout.
 - Every hazard rule, statistical choice and insight wording was reviewed against the brief and checked on known events (table above).
