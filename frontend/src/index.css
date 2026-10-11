@@ -128,3 +128,15 @@
     @apply font-sans;
   }
 }
+
+/* "PDF" export is the browser's print dialog, so the page itself has to print well. */
+@media print {
+  [data-slot='card'] {
+    break-inside: avoid;
+  }
+  /* Canvases keep their on-screen pixel width; let them shrink to the paper. */
+  canvas {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}

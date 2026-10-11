@@ -14,7 +14,8 @@ export function Summary({ analysis, hazardLabel, regionName, query }: Props) {
 
   return (
     <Card>
-      <CardHeader>
+      {/* print:block drops the empty export-button column so the title gets full width on paper */}
+      <CardHeader className="print:block">
         <CardTitle className="text-base">
           {hazardLabel} · {regionName} · {first}–{last}
         </CardTitle>
