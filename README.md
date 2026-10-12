@@ -2,7 +2,9 @@
 
 Pick a city, a state or a box on the map, and see how heatwaves (or heavy rain, or dry spells) have changed there since 1981, with an honest test of whether the change is real.
 
-**Live app:** _TODO: Vercel URL_ · **API:** _TODO: Render URL_ (free tier: the first request after idle takes ~50 s to wake up)
+**Live app:** https://climate-hazard-analyzer-sigma.vercel.app · **API docs:** https://climate-hazard-api-9ppo.onrender.com/docs
+
+> The API runs on Render's free tier, which sleeps when idle: the first request after a quiet spell takes ~50 s while it wakes up.
 
 ![Paris heatwave analysis](docs/screenshot.png)
 
