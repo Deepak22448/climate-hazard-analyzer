@@ -23,7 +23,13 @@ from app.hazards import HAZARDS, HazardParams
 
 MAX_BOX_DEGREES = 10
 MIN_RANGE_YEARS = 10
-ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+# Browsers send the origin with no trailing slash, and CORS matching is exact, so
+# tidy up what was typed into the dashboard ("https://a.app/, http://b" still works).
+ALLOWED_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+    if origin.strip()
+]
 log = logging.getLogger("uvicorn.error")
 
 
