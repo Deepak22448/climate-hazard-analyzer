@@ -16,7 +16,8 @@ export type Bbox = [south: number, west: number, north: number, east: number]
 export type Region =
   | { kind: 'point'; name: string; lat: number; lon: number }
   | { kind: 'box'; bbox: Bbox }
-  | { kind: 'state'; name: string; id: string; polygon?: GeoJSON.Geometry }
+  // Search gives the bbox; the outline arrives with the analysis.
+  | { kind: 'state'; name: string; id: string; bbox?: Bbox; polygon?: GeoJSON.Geometry }
 
 export type HazardInfo = { id: string; label: string; params: string[] }
 
@@ -29,7 +30,6 @@ export type Place = {
   lat: number
   lon: number
   bbox?: Bbox
-  polygon?: GeoJSON.Geometry
 }
 
 export type Trend = {

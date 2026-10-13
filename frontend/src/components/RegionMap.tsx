@@ -128,7 +128,12 @@ function regionBounds(region: Region): L.LatLngBounds | null {
     const [south, west, north, east] = region.bbox
     return L.latLngBounds([south, west], [north, east])
   }
-  return region.polygon ? L.geoJSON(region.polygon).getBounds() : null
+  if (region.polygon) return L.geoJSON(region.polygon).getBounds()
+  if (region.bbox) {
+    const [south, west, north, east] = region.bbox
+    return L.latLngBounds([south, west], [north, east])
+  }
+  return null
 }
 
 function FitTo({ region }: { region: Region }) {

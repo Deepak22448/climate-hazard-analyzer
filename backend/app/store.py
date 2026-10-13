@@ -5,6 +5,9 @@ weather_daily: raw NASA POWER values, one document per grid cell per year (the
     Values are stored before QC, so changing QC rules never needs a re-download.
 analyses: finished analysis responses, expired after a week.
 places: state outlines from Nominatim, expired after a month.
+state_searches: Photon state-search results by typed text, expired after a month.
+    The public Photon server can take several seconds, so a prefix searched once
+    answers instantly afterwards.
 """
 
 import os
@@ -16,6 +19,7 @@ from pymongo import AsyncMongoClient, ReplaceOne
 
 ANALYSIS_TTL = timedelta(days=7)
 PLACE_TTL = timedelta(days=30)
+SEARCH_TTL = timedelta(days=30)
 COLUMNS = ["tmax", "tmin", "precip"]
 
 client = AsyncMongoClient(os.environ.get("MONGO_URI", "mongodb://localhost:27017"))
@@ -23,12 +27,14 @@ db = client["climate_hazards"]
 weather = db["weather_daily"]
 analyses = db["analyses"]
 places = db["places"]
+state_searches = db["state_searches"]
 
 
 async def create_indexes() -> None:
     await weather.create_index([("lat", 1), ("lon", 1), ("year", 1)])
     await analyses.create_index("saved_at", expireAfterSeconds=int(ANALYSIS_TTL.total_seconds()))
     await places.create_index("saved_at", expireAfterSeconds=int(PLACE_TTL.total_seconds()))
+    await state_searches.create_index("saved_at", expireAfterSeconds=int(SEARCH_TTL.total_seconds()))
 
 
 def now() -> datetime:
@@ -73,6 +79,14 @@ async def load_place(place_id: str) -> dict | None:
     return await places.find_one({"_id": place_id}, {"_id": 0, "saved_at": 0})
 
 
-async def save_places(found: list[dict]) -> None:
-    for place in found:
-        await places.replace_one({"_id": place["id"]}, {**place, "saved_at": now()}, upsert=True)
+async def save_place(place: dict) -> None:
+    await places.replace_one({"_id": place["id"]}, {**place, "saved_at": now()}, upsert=True)
+
+
+async def load_state_search(text: str) -> list[dict] | None:
+    doc = await state_searches.find_one({"_id": text}, {"results": 1})
+    return doc["results"] if doc else None
+
+
+async def save_state_search(text: str, results: list[dict]) -> None:
+    await state_searches.replace_one({"_id": text}, {"results": results, "saved_at": now()}, upsert=True)

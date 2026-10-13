@@ -1,4 +1,5 @@
-"""Clients for the external APIs: NASA POWER (weather), Open-Meteo (city search), Nominatim (states).
+"""Clients for the external APIs: NASA POWER (weather), Open-Meteo (city search),
+Photon (state search) and Nominatim (state outlines).
 
 Every URL is a fixed host. User input only ever goes into the query-params
 dict, so it can't redirect a request somewhere else.
@@ -13,6 +14,7 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponen
 
 POWER_URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
 CITY_SEARCH_URL = "https://geocoding-api.open-meteo.com/v1/search"
+STATE_SEARCH_URL = "https://photon.komoot.io/api/"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org"
 USER_AGENT = "climate-hazard-analyzer/1.0 (case-study app; python-httpx)"
 
@@ -106,16 +108,38 @@ def parse_state(place: dict) -> dict | None:
     }
 
 
+async def search_states(query: str) -> list[dict]:
+    """Type-ahead state search.
+
+    Photon matches prefixes ("raja" finds Rajasthan); Nominatim only matches
+    whole words, which breaks a search box that queries as you type. Photon
+    returns no outline, so results carry just the OSM id; the outline is
+    fetched from Nominatim by that id when the state is analysed.
+    """
+    data = await get_json(STATE_SEARCH_URL, {"q": query, "layer": "state", "limit": 6, "lang": "en"})
+    states = []
+    for feature in data.get("features", []):
+        place = feature["properties"]
+        west, north, east, south = place["extent"]
+        lon, lat = feature["geometry"]["coordinates"]
+        states.append(
+            {
+                "id": f"{place['osm_type']}{place['osm_id']}",
+                "name": place["name"],
+                "detail": place.get("country", ""),
+                "lat": lat,
+                "lon": lon,
+                "bbox": [south, west, north, east],
+            }
+        )
+    return states
+
+
 # polygon_threshold simplifies outlines to ~5 km, plenty for picking sample
 # points, and keeps responses small.
-POLYGON_PARAMS = {"format": "jsonv2", "polygon_geojson": 1, "polygon_threshold": 0.05}
-
-
-async def search_states(query: str) -> list[dict]:
-    results = await nominatim("search", {"q": query, "featureType": "state", "limit": 5, **POLYGON_PARAMS})
-    return [state for state in map(parse_state, results) if state]
+LOOKUP_PARAMS = {"format": "jsonv2", "polygon_geojson": 1, "polygon_threshold": 0.05, "accept-language": "en"}
 
 
 async def lookup_state(state_id: str) -> dict | None:
-    results = await nominatim("lookup", {"osm_ids": state_id, **POLYGON_PARAMS})
+    results = await nominatim("lookup", {"osm_ids": state_id, **LOOKUP_PARAMS})
     return parse_state(results[0]) if results else None

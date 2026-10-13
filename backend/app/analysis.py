@@ -81,7 +81,7 @@ async def resolve_region(
         place = await sources.lookup_state(state)
         if place is None:
             return None
-        await store.save_places([place])
+        await store.save_place(place)
     return {
         "kind": "state",
         "name": place["name"],

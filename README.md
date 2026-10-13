@@ -70,12 +70,14 @@ flowchart LR
         weather[("weather_daily<br/>raw daily data · permanent")]
         analyses[("analyses<br/>finished results · 7-day TTL")]
         places[("places<br/>state outlines · 30-day TTL")]
+        searches[("state_searches<br/>state search results · 30-day TTL")]
     end
 
     subgraph external["External APIs"]
         nasa["NASA POWER<br/>daily weather"]
         openmeteo["Open-Meteo<br/>city search"]
-        nominatim["Nominatim / OSM<br/>state search + outline"]
+        photon["Photon / OSM<br/>state search (prefix)"]
+        nominatim["Nominatim / OSM<br/>state outline"]
     end
 
     user --> ui
@@ -83,8 +85,10 @@ flowchart LR
     api <--> analyses
     api <--> weather
     api <--> places
+    api <--> searches
     api -- "only for missing years" --> nasa
     api --> openmeteo
+    api -- "cache miss only" --> photon
     api -- "max 1 req/s" --> nominatim
 ```
 
@@ -119,7 +123,8 @@ File-by-file guides: [backend/README.md](backend/README.md) (modules, MongoDB co
   - A coarser grid. Reanalysis smooths local extremes: Paris's hottest day in 2019 is 39.6 °C in its grid cell, against the 42.6 °C station record. Trends are more reliable than absolute values.
 - **Geocoding:**
   - Open-Meteo for cities, which is fast and generous. The frontend sends the city's coordinates, so nothing needs storing.
-  - Nominatim for states, because it returns the outline polygon. The backend needs that outline, and Nominatim allows at most 1 request a second (enforced with a lock), so outlines are cached in `places`.
+  - Photon for state search, because it matches prefixes as you type ("raja" → Rajasthan); Nominatim only matches whole words. The public Photon server can take several seconds, so results are cached in `state_searches` and a prefix searched once answers in milliseconds.
+  - Nominatim for the state's outline, fetched by OSM id when the state is analysed. The backend needs that outline to pick grid cells, and Nominatim allows at most 1 request a second (enforced with a lock), so outlines are cached in `places`.
 
 ## Hazard logic
 
@@ -200,7 +205,7 @@ Quality control is the `clean()` function in [`backend/app/hazards.py`](backend/
   - Retries with exponential backoff on 429/5xx and network errors.
   - If the provider stays down, the API returns 502 with a friendly message and no stack trace.
 - **Caching:**
-  - **MongoDB:** raw data (permanent), finished analyses (7 days), state outlines (30 days).
+  - **MongoDB:** raw data (permanent), finished analyses (7 days), state outlines and state searches (30 days).
   - **Browser:** TanStack Query caches responses within a session.
   - **No HTTP caching for analyses:** they carry no browser `Cache-Control`, and the frontend fetches with `cache: 'no-cache'`. A browser-cached copy would outlive an `ALGO_VERSION` bump after a deploy. Place searches keep a one-day `Cache-Control`.
   - **Compression:** responses over 1 KB are gzip-compressed.

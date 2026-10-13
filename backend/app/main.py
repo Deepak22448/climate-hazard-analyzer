@@ -152,8 +152,11 @@ async def places(
     if kind == "city":
         found = await sources.search_cities(q)
     else:
-        found = await sources.search_states(q)
-        await store.save_places(found)
+        text = " ".join(q.lower().split())  # "  Raja " and "raja" share one cache entry
+        found = await store.load_state_search(text)
+        if found is None:
+            found = await sources.search_states(text)
+            await store.save_state_search(text, found)
     response.headers["Cache-Control"] = "public, max-age=86400"
     return found
 

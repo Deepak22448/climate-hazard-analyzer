@@ -30,7 +30,7 @@ docker run -p 8000:8000 -e MONGO_URI=mongodb://host.docker.internal:27017 climat
 | `app/analysis.py` | The request flow: region → grid cells → daily data → regional result |
 | `app/hazards.py` | QC and hazard detection. Pure functions, no I/O |
 | `app/trends.py` | Rolling mean, regression, Mann-Kendall / Sen's slope, insight sentences |
-| `app/sources.py` | NASA POWER, Open-Meteo and Nominatim clients (retry, backoff, politeness limits) |
+| `app/sources.py` | NASA POWER, Open-Meteo, Photon and Nominatim clients (retry, backoff, politeness limits) |
 | `app/store.py` | MongoDB collections |
 | `seed.py` | Pre-downloads demo cities |
 | `tests/test_hazards.py` | Synthetic-series tests: run detection, gaps, QC, trend significance |
@@ -44,7 +44,8 @@ Database `climate_hazards`.
 |---|---|---|---|---|
 | `weather_daily` | One grid cell × one year: `tmax[]`, `tmin[]`, `precip[]` (raw, before QC) | `"56.0_37.5_1981"` | A request needs a cell or year not yet stored | Never |
 | `analyses` | One finished analysis response (`result`) | SHA-256 of the normalised query + `ALGO_VERSION` | After a cache miss on `/api/analysis` or `.csv` | 7 days (TTL index) |
-| `places` | One state: name, bbox, simplified outline polygon | OSM id, e.g. `"R1942920"` | State search results, or a state id not yet stored | 30 days (TTL index) |
+| `places` | One state: name, bbox, simplified outline polygon (from Nominatim) | OSM id, e.g. `"R1942920"` | A state is analysed for the first time | 30 days (TTL index) |
+| `state_searches` | The Photon results for one typed text | Normalised text, e.g. `"raja"` | A state search not seen before | 30 days (TTL index) |
 
 City searches are not stored: the frontend sends the city's coordinates, so there is nothing to look up again.
 

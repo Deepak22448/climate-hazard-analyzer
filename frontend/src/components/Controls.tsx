@@ -61,9 +61,7 @@ export function Controls(props: Props) {
           {mode === 'state' && (
             <PlaceSearch
               kind="state"
-              onPick={(p) =>
-                props.onRegionChange({ kind: 'state', name: p.name, id: p.id, polygon: p.polygon })
-              }
+              onPick={(p) => props.onRegionChange({ kind: 'state', name: p.name, id: p.id, bbox: p.bbox })}
             />
           )}
           <p className="text-xs text-muted-foreground">
